@@ -1,0 +1,22 @@
+spring:
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      batch-size: 64000
+      compression-type: snappy
+      acks: 1
+      properties:
+        linger.ms: 20
+
+reporting:
+  output-directory: build/testing/output
+  latest-only-coordinates:
+    enabled: true
+  superseded-offsets:
+    enabled: true
+  formatted-latest-only-coordinates:
+    enabled: false
+    template: "Topic: {topic} Partition: {partition} Offset: {offset}"

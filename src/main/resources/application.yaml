@@ -1,0 +1,23 @@
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    consumer:
+      max-poll-records: 100
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+pooling:
+  consumer-pool:
+    max-pool-size: 5
+
+reporting:
+  output-directory: results
+  latest-only-coordinates:
+    enabled: true
+  superseded-offsets:
+    enabled: false
+  formatted-latest-only-coordinates:
+    enabled: false
+    template: "{topic}-{partition}-{offset}"
+
