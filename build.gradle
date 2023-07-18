@@ -69,10 +69,6 @@ task perfTests(type: Test) {
     }
 }
 
-project.afterEvaluate {
-    check.dependsOn -= stressTest
-}
-
 tasks.named("detekt").configure {
     reports {
         xml.required.set(true)
