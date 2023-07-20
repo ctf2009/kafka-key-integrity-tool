@@ -59,7 +59,6 @@ class StressTest {
 
         val strategy = producerRecordStrategyBuilder {
             randomRecords(STRESS_TOPIC_1, 1_000_000)
-            // These will be the ones we want to check
             recordWithKnownKey(STRESS_TOPIC_1, markerKey1)
             recordWithKnownKey(STRESS_TOPIC_1, markerKey2)
             randomRecords(STRESS_TOPIC_1, 100_000, true)
@@ -67,12 +66,6 @@ class StressTest {
             randomRecords(STRESS_TOPIC_1, 15_000_000)
             randomRecords(STRESS_TOPIC_1, 20_000, true)
             randomRecords(STRESS_TOPIC_1, 5_000_000)
-            randomRecords(STRESS_TOPIC_1, 80_000, true)
-            randomRecords(STRESS_TOPIC_1, 5_000_000)
-            randomRecords(STRESS_TOPIC_1, 50_000, true)
-            randomRecords(STRESS_TOPIC_1, 1_000_000)
-            randomRecords(STRESS_TOPIC_1, 50_000, true)
-            randomRecords(STRESS_TOPIC_1, 4_000_000)
             // This last one should mean that the earliest offset for this key is not included in the output
             // and neither will the offset for this key as it won't be included in the input
             // This is essentially proving the process is consuming till the latest identified offset

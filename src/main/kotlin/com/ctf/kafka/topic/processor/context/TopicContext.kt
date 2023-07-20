@@ -20,10 +20,11 @@ data class TopicContext(
 
     fun offsetToSearchTo(topicPartition: TopicPartition) = latestWorkingByOffsets.getValue(topicPartition.partition())
 
-    fun isOffsetWithinRange(partitionId: Int, offset: Long): Boolean =
-        offset >= earliestOffsetsByPartition.getValue(partitionId) && offset < latestWorkingByOffsets.getValue(
-            partitionId
-        )
+    fun isOffsetWithinRange(topicPartition: TopicPartition, offset: Long): Boolean {
+        val partitionId = topicPartition.partition()
+        return offset >= earliestOffsetsByPartition.getValue(partitionId)
+                && offset < latestWorkingByOffsets.getValue(partitionId)
+    }
 
     fun availablePartitionIds() = availablePartitionsById.keys
 

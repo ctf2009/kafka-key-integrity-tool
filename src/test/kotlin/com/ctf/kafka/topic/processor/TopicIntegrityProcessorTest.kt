@@ -6,7 +6,8 @@ import com.ctf.kafka.topic.strategy.KafkaCoordinate
 import com.ctf.kafka.topic.strategy.producerRecordStrategyBuilder
 import com.ctf.kafka.topic.strategy.topicContextExpectations
 import io.kotest.matchers.string.shouldContain
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,6 +21,7 @@ import java.util.*
 
 private const val TOPIC_NAME = "test-topic"
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @SpringBootTest(properties = ["runner.enabled=false"])
 @ActiveProfiles("Test")
 @EmbeddedKafka(topics = [TOPIC_NAME], partitions = 1)
@@ -33,7 +35,7 @@ class TopicIntegrityProcessorTest {
     private lateinit var unitUnderTest: PartitionScopedKeyProcessor
 
     @Test
-    fun `Verify correct context produced for offset which is latest for key`() = runBlocking {
+    fun `Verify correct context produced for offset which is latest for key`() = runTest {
         val key = UUID.randomUUID().toString()
 
         // Producer Strategy
@@ -55,7 +57,7 @@ class TopicIntegrityProcessorTest {
     }
 
     @Test
-    fun `Verify for single offset which is not latest for key`() = runBlocking {
+    fun `Verify for single offset which is not latest for key`() = runTest {
         val key = UUID.randomUUID().toString()
 
         // Producer Strategy
@@ -77,7 +79,7 @@ class TopicIntegrityProcessorTest {
     }
 
     @Test
-    fun `Verify for multiple offsets for same key where one is latest`() = runBlocking {
+    fun `Verify for multiple offsets for same key where one is latest`() = runTest {
         val key = UUID.randomUUID().toString()
 
         // Producer Strategy
@@ -101,7 +103,7 @@ class TopicIntegrityProcessorTest {
     }
 
     @Test
-    fun `Verify context is correct when topic does not exist`() = runBlocking {
+    fun `Verify context is correct when topic does not exist`() = runTest {
         val coordinateForMissingTopic = KafkaCoordinate("MISSING_TOPIC", 0, 10, 0)
         val result = unitUnderTest.processTopic("MISSING_TOPIC",
             mutableMapOf<Int, SortedSet<Long>>().also {
@@ -115,7 +117,7 @@ class TopicIntegrityProcessorTest {
     }
 
     @Test
-    fun `Verify if offset is out of range then context is updated accordingly`() = runBlocking {
+    fun `Verify if offset is out of range then context is updated accordingly`() = runTest {
         val outOfRangeCoordinate = KafkaCoordinate(TOPIC_NAME, 0, 10_000, 0)
 
         val result = unitUnderTest.processTopic(TOPIC_NAME,
@@ -130,7 +132,30 @@ class TopicIntegrityProcessorTest {
     }
 
     @Test
-    fun `Verify if partition does not exist then context is updated accordingly`() = runBlocking {
+    fun `Verify if offset is out of range when another offset within range with smaller offset value`() = runTest {
+        val withinRangeKey = UUID.randomUUID().toString()
+        val outOfRangeCoordinate = KafkaCoordinate(TOPIC_NAME, 0, 10_000, 0)
+
+        // Producer Strategy
+        val strategy = producerRecordStrategyBuilder {
+            recordWithKnownKey(TOPIC_NAME, withinRangeKey)
+        }.execute(template)
+
+        val result = unitUnderTest.processTopic(TOPIC_NAME,
+            mutableMapOf<Int, SortedSet<Long>>().also {
+                it.addCoordinateToInputMap(strategy.firstForKey(withinRangeKey))
+                it.addCoordinateToInputMap(outOfRangeCoordinate)
+            })
+
+        // Expectations
+        topicContextExpectations(TOPIC_NAME) {
+            latestForKey(withinRangeKey, strategy::latestForKey)
+            failureForCoordinate(outOfRangeCoordinate, Failure.OFFSET_NOT_WITHIN_RANGE)
+        }.verify(result)
+    }
+
+    @Test
+    fun `Verify if partition does not exist then context is updated accordingly`() = runTest {
         val missingPartitionCoordinate = KafkaCoordinate(TOPIC_NAME, 1, 2, 0)
 
         val result = unitUnderTest.processTopic(TOPIC_NAME,
@@ -145,7 +170,7 @@ class TopicIntegrityProcessorTest {
     }
 
     @Test
-    fun `Verify that offset of interest with missing key updates context accordingly`() = runBlocking {
+    fun `Verify that offset of interest with missing key updates context accordingly`() = runTest {
         val referenceToOffsetWithNoKey = UUID.randomUUID().toString()
 
         // Producer Strategy
@@ -168,7 +193,7 @@ class TopicIntegrityProcessorTest {
     @Test
     fun `Verify that processing can complete early if no offsets of interest have keys`(
         output: CapturedOutput
-    ): Unit = runBlocking {
+    ): Unit = runTest {
         val referenceToOffsetWithNoKey1 = UUID.randomUUID().toString()
         val referenceToOffsetWithNoKey2 = UUID.randomUUID().toString()
 

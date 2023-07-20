@@ -1,6 +1,5 @@
 package com.ctf.kafka.topic.processor
 
-import com.ctf.kafka.topic.extensions.actionIfFalse
 import com.ctf.kafka.topic.extensions.beginningOffsetsByPartitionId
 import com.ctf.kafka.topic.extensions.endOffsetsByPartitionId
 import com.ctf.kafka.topic.extensions.hasKey
@@ -17,6 +16,7 @@ import org.apache.kafka.common.TopicPartition
 import org.springframework.stereotype.Component
 import java.time.Duration
 import java.util.*
+import kotlin.math.min
 
 private const val POLL_TIMEOUT_SECONDS: Long = 5
 
@@ -85,17 +85,26 @@ class PartitionScopedKeyProcessor(private val consumerPool: ResourcePool<Consume
     ): List<VerifiedCoordinate> {
         consumer.assign(listOf(topicPartition))
         val partitionContext = PartitionContext(topicPartition, offsetsOfInterest)
-        val earliestOffsetToSeek = offsetsOfInterest.find { offset ->
-            topicContext.isOffsetWithinRange(topicPartition.partition(), offset).actionIfFalse {
-                partitionContext.failedOffsetOfInterest(offset, Failure.OFFSET_NOT_WITHIN_RANGE)
-            }
-        }
+        val earliestOffsetToSeek = validateAndObtainEarliestOffset(topicContext, partitionContext, offsetsOfInterest)
 
         earliestOffsetToSeek?.let {
             consumePartition(it, consumer, topicContext, partitionContext)
             logger.debug { "Completed processing partition at offset ${consumer.position(topicPartition)}" }
         }
         return buildVerifiedOffsetList(partitionContext)
+    }
+
+    private fun validateAndObtainEarliestOffset(
+        topicContext: TopicContext,
+        partitionContext: PartitionContext,
+        offsetsOfInterest: SortedSet<Long>
+    ) = offsetsOfInterest.fold<Long, Long?>(null) { acc, offset ->
+        if (topicContext.isOffsetWithinRange(partitionContext.topicPartition, offset)) {
+            acc?.let { min(acc, offset) } ?: offset
+        } else {
+            partitionContext.failedOffsetOfInterest(offset, Failure.OFFSET_NOT_WITHIN_RANGE)
+            acc
+        }
     }
 
     private fun consumePartition(
